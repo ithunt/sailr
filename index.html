@@ -54,6 +54,9 @@ function create() {
     boat.body.drag.setTo(drag,drag);
     boat.body.collideWorldBounds = true;
 
+    boat.body.angularDrag = 20;
+//    boat.body.velocity.set(10,0);
+
     var style = { font: "18px Arial", fill: "#000", align: "right" };
     statusText = game.add.text(game.width-100, 50, "", style);
     statusText.anchor.x = Math.round(statusText.width * 0.5) / statusText.width;
@@ -64,32 +67,52 @@ function create() {
     compass.scale.y = 0.15;
 
     cursors = game.input.keyboard.createCursorKeys();
+
 }
 
+var rudderAcceleration = 30;
+var boatSpeed = 30;
 function update() {
 
-    boat.body.acceleration.x = 0;
-    boat.body.acceleration.y = 0;
+
+    boat.body.angularAcceleration = 0;
+
 
     //rotate the boat to the velocity angle
 //    boat.body.rotation = radsToDegrees(boat.body.angle) + 90;
 
     //since we're not powered, maybe I should only affect angular acceleration
     if(cursors.left.isDown) {
-        boat.body.acceleration.x = -acceleration;
+        boat.body.angularAcceleration = -rudderAcceleration;
     } else if(cursors.right.isDown) {
-        boat.body.acceleration.x = acceleration;
+        boat.body.angularAcceleration = rudderAcceleration;
     }
 
-    if(cursors.up.isDown) {
-        boat.body.acceleration.y = -acceleration;
-    } else if(cursors.down.isDown) {
-        boat.body.acceleration.y = acceleration;
-    }
+    //    boat.body.acceleration.x = 0;
+//    boat.body.acceleration.y = 0;
+
+    //boat is moving at speed in direction of its heading
+
+    //have the angle and the direction
+    // so cos( heading )
 
 
 
-    var heading = compassAngle(Math.round(radsToDegrees(boat.body.angle)) + 90);
+    boat.body.velocity.y = -Math.cos( Phaser.Math.degToRad( boat.body.rotation ) ) * boatSpeed;
+    boat.body.velocity.x = Math.sin( Phaser.Math.degToRad( boat.body.rotation ) )* boatSpeed;
+
+
+
+
+//    if(cursors.up.isDown) {
+//        boat.body.acceleration = acceleration;
+//    } else if(cursors.down.isDown) {
+//        boat.body.acceleration = -acceleration;
+//    }
+
+
+
+    var heading = compassAngle(Math.round(boat.body.rotation));
     statusText.text =
             "velX: " + Math.round(boat.body.velocity.x) +
             "\nvelY: " + Math.round(boat.body.velocity.y) +
@@ -97,8 +120,8 @@ function update() {
             "\nWind: " + wind.getSpeed() + "kts @ " + wind.getDirection() +
             "\nAngle: " + wind.getBearingRelativeTo(heading) +
             "\n" + pointOfSail(wind.getBearingRelativeTo(heading)).toString()
-//            + "\nangularV: " + boat.body.angularVelocity
-//            + "\nangularA: " + boat.body.angularAcceleration
+            + "\nangularV: " + Math.round(boat.body.angularVelocity)
+            + "\nangularA: " + Math.round(boat.body.angularAcceleration)
     ;
 
     ;
