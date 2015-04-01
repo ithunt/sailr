@@ -26,7 +26,7 @@ var maxspeed = 400;
 var boatSpeed = 80;
 //steering feel
 var rudderAcceleration = 200;
-var angularDrag = 130;  //maybe should be a function increasing with speed!
+var angularDrag = 200;  //maybe should be a function increasing with speed!
 var maxAngular = 80;
 
 var status = 0;
@@ -63,11 +63,16 @@ function create() {
     boat.body.collideWorldBounds = true;
     //simulate rudder steering, when at speed it will return to center
     boat.body.angularDrag = angularDrag;
+    boat.rotation = 2;
 
     var style = { font: "18px Arial", fill: "#000", align: "right" };
-    statusText = game.add.text(game.width-100, 50, "", style);
-    statusText.anchor.x = Math.round(statusText.width * 0.5) / statusText.width;
+    statusText = game.add.text(game.width-150, 30, "", style);
+//    statusText.anchor.x = Math.round(statusText.width * 0.5) / statusText.width;
     statusText.fixedToCamera = true;
+
+    var directions = { font: "18px Arial", fill: "#000" };
+    var directionText = game.add.text(300, 10, "Use the left and right arrows to move your rudder", style);
+
 
     var compass = game.add.sprite(0,0, 'compass');
     compass.scale.x = 0.15;
