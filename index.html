@@ -22,6 +22,13 @@ var boat;
 var acceleration = 200;
 var drag = 0;
 var maxspeed = 400;
+
+var boatSpeed = 80;
+//steering feel
+var rudderAcceleration = 200;
+var angularDrag = 130;  //maybe should be a function increasing with speed!
+var maxAngular = 80;
+
 var status = 0;
 
 var statusText;
@@ -51,11 +58,11 @@ function create() {
     boat.scale.y = 0.15;
     game.physics.enable(boat, Phaser.Physics.ARCADE);
     boat.body.maxVelocity.setTo(maxspeed);
+    boat.body.maxAngular = maxAngular;
     boat.body.drag.setTo(drag,drag);
     boat.body.collideWorldBounds = true;
-
-    boat.body.angularDrag = 20;
-//    boat.body.velocity.set(10,0);
+    //simulate rudder steering, when at speed it will return to center
+    boat.body.angularDrag = angularDrag;
 
     var style = { font: "18px Arial", fill: "#000", align: "right" };
     statusText = game.add.text(game.width-100, 50, "", style);
@@ -67,51 +74,27 @@ function create() {
     compass.scale.y = 0.15;
 
     cursors = game.input.keyboard.createCursorKeys();
-
 }
 
-var rudderAcceleration = 30;
-var boatSpeed = 30;
+
 function update() {
-
-
+    //rudder alters the angular acceleration of the boat
     boat.body.angularAcceleration = 0;
-
-
-    //rotate the boat to the velocity angle
-//    boat.body.rotation = radsToDegrees(boat.body.angle) + 90;
-
-    //since we're not powered, maybe I should only affect angular acceleration
     if(cursors.left.isDown) {
         boat.body.angularAcceleration = -rudderAcceleration;
     } else if(cursors.right.isDown) {
         boat.body.angularAcceleration = rudderAcceleration;
     }
 
-    //    boat.body.acceleration.x = 0;
-//    boat.body.acceleration.y = 0;
-
-    //boat is moving at speed in direction of its heading
-
-    //have the angle and the direction
-    // so cos( heading )
-
-
-
+    //Move boat at a constant speed in the direction it is pointing (body.rotation)
     boat.body.velocity.y = -Math.cos( Phaser.Math.degToRad( boat.body.rotation ) ) * boatSpeed;
     boat.body.velocity.x = Math.sin( Phaser.Math.degToRad( boat.body.rotation ) )* boatSpeed;
-
-
-
 
 //    if(cursors.up.isDown) {
 //        boat.body.acceleration = acceleration;
 //    } else if(cursors.down.isDown) {
 //        boat.body.acceleration = -acceleration;
 //    }
-
-
-
     var heading = compassAngle(Math.round(boat.body.rotation));
     statusText.text =
             "velX: " + Math.round(boat.body.velocity.x) +
@@ -122,8 +105,6 @@ function update() {
             "\n" + pointOfSail(wind.getBearingRelativeTo(heading)).toString()
             + "\nangularV: " + Math.round(boat.body.angularVelocity)
             + "\nangularA: " + Math.round(boat.body.angularAcceleration)
-    ;
-
     ;
 }
 
@@ -155,45 +136,40 @@ var wind = {
 //we;ll do 180/5 = 36 for ease of use now. America's cup boat angles
 var pointsOfSail = [
     {
-        toString: function() { return "Irons"; },
-        check: function(bearing) {
-            return Math.abs(bearing) < 36;
-        }
+        name: "In Irons",
+        minDeg: 0, maxDeg: 35
+        //negative acceleration, can go backwards
     },
     {
-        toString: function() { return "Close Hauled"; },
-        check: function(bearing) {
-            var absoluteBearing = Math.abs(bearing);
-            return absoluteBearing >= 36 && absoluteBearing < 72;
-        }
+        name: "Close Hauled",
+        minDeg: 36, maxDeg: 72
+        //slow acceleration, low top speed
     },
     {
-        toString: function() { return "Beam Reaching"; },
-        check: function(bearing) {
-            var absoluteBearing = Math.abs(bearing);
-            return absoluteBearing >= 72  && absoluteBearing < 108;
-        }
+        name: "Beam Reaching",
+        minDeg: 73, maxDeg: 108
+        //med acceleration
     },
     {
-        toString: function() { return "Reaching"; },
-        check: function(bearing) {
-            var absoluteBearing = Math.abs(bearing);
-            return absoluteBearing >= 108  && absoluteBearing < 144;
-        }
+        name: "Reaching",
+        minDeg: 109, maxDeg: 144
+        //high acceleration, increased top speed
     },
     {
-        toString: function() { return "Downwind"; },
-        check: function(bearing) {
-            var absoluteBearing = Math.abs(bearing);
-            return absoluteBearing >= 144  ;
-        }
+        name: "Downwind",
+        minDeg: 145, maxDeg: 180
+        //high acceleration, max top speed
     }
+
+     //spinnaker vs asym vs wing on wing for what the point of sail => acceleration and top speed modifiers
+
 ];
 
 function pointOfSail(bearingFromWind) {
     for(var i=0;i<pointsOfSail.length;i++) {
-        if(pointsOfSail[i].check(bearingFromWind))
-            return pointsOfSail[i];
+        var pos = pointsOfSail[i];
+        if(bearingFromWind >= pos.minDeg && bearingFromWind <= pos.maxDeg)
+            return pos.name;
     }
 }
 //
