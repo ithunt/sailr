@@ -16,8 +16,11 @@
 
 var game = new Phaser.Game(800, 600, Phaser.AUTO, '', { preload: preload, create: create, update: update });
 
+//todo variable organization
 var cursors;
+
 var boat;
+var windSprite;
 
 var acceleration = 200;
 var drag = 0;
@@ -35,8 +38,9 @@ var statusText;
 
 function preload() {
 //    console.log('preload');
-	game.load.image('boat', 'img/boat.png');
+	game.load.image('boat', 'img/boatSmall.png');
     game.load.image('compass', 'img/compass.png');
+    game.load.image('wind', 'img/wind200.png');
     game.scale.pageAlignHorizontally = true;
     game.scale.pageAlignVertically = true;
 
@@ -54,8 +58,8 @@ function create() {
     //anchor from middle
     boat.anchor.setTo(0.5);
     //it's a big img
-    boat.scale.x = 0.15;
-    boat.scale.y = 0.15;
+    boat.scale.x = 0.5;
+    boat.scale.y = 0.5;
     game.physics.enable(boat, Phaser.Physics.ARCADE);
     boat.body.maxVelocity.setTo(maxspeed);
     boat.body.maxAngular = maxAngular;
@@ -75,14 +79,34 @@ function create() {
 
 
     var compass = game.add.sprite(0,0, 'compass');
-    compass.scale.x = 0.15;
-    compass.scale.y = 0.15;
+    compass.scale.setTo(0.15);
+
+    windSprite = game.add.sprite(400,10,'wind');
+    windSprite.anchor.setTo(0.5);
+    windSprite.scale.setTo(0.4);
+    windSprite.rotation = Phaser.Math.degToRad( wind.direction + 180 );
+    wind.lastShift = Date.now();
 
     cursors = game.input.keyboard.createCursorKeys();
 }
 
+var wind_shift_period = 3*1000;
+var wind_shift_chance = 0.5;
+var wind_shift_range = 20;
 
 function update() {
+    if( wind_shift_period < (Date.now() - wind.lastShift) ) {
+        if( Math.random() < wind_shift_chance ) {
+        wind.setDirection(
+                //if the wind shift range is 45,the wind will shift up to +/- 22.5 degrees on either side
+                wind.direction + (wind_shift_range * Math.random()) - (wind_shift_range/2));
+        } else {
+            wind.lastShift = Date.now(); //delay the shift
+        }
+    }
+    //update wind indicator
+    windSprite.rotation =  Phaser.Math.degToRad( wind.direction + 90 );
+
     //rudder alters the angular acceleration of the boat
     boat.body.angularAcceleration = 0;
     if(cursors.left.isDown) {
@@ -100,17 +124,21 @@ function update() {
 //    } else if(cursors.down.isDown) {
 //        boat.body.acceleration = -acceleration;
 //    }
-    var heading = compassAngle(Math.round(boat.body.rotation));
+    var heading = compassAngle( Math.round(boat.body.rotation) ); //rotation is 90 degrees different then the game plane
+//    console.log(heading);
     statusText.text =
             "velX: " + Math.round(boat.body.velocity.x) +
             "\nvelY: " + Math.round(boat.body.velocity.y) +
             "\nheading: " + heading +
-            "\nWind: " + wind.getSpeed() + "kts @ " + wind.getDirection() +
-            "\nAngle: " + wind.getBearingRelativeTo(heading) +
+            "\nWind: " + Math.round(wind.speed) + "kts @ " + Math.round(compassAngle(wind.direction)) +
+            "\nAngle: " + Math.round(wind.getBearingRelativeTo(heading)) +
             "\n" + pointOfSail(wind.getBearingRelativeTo(heading)).toString()
-            + "\nangularV: " + Math.round(boat.body.angularVelocity)
-            + "\nangularA: " + Math.round(boat.body.angularAcceleration)
+//            + "\nangularV: " + Math.round(boat.body.angularVelocity)
+//            + "\nangularA: " + Math.round(boat.body.angularAcceleration)
+//            + "\nnow: " + Date.now()
     ;
+
+    //update
 }
 
 function radsToDegrees(radians) {
@@ -126,14 +154,15 @@ function compassAngle(degrees) {
 }
 
 var wind = {
-    getSpeed: function() {
-        return 10;
-    },
-    getDirection: function() {
-        return 0;
+    speed: 10,
+    direction: 0,
+    lastShift: 0,
+    setDirection: function(direction) {
+        this.lastShift = Date.now();
+        this.direction = direction;
     },
     getBearingRelativeTo: function(compassBearing) {
-        var diff = compassBearing - this.getDirection();
+        var diff = Math.abs(compassBearing - this.direction);
         return diff < 180 ? diff : 360 - diff; //returns values between 0 and 180
     }
 };
@@ -173,7 +202,8 @@ var pointsOfSail = [
 function pointOfSail(bearingFromWind) {
     for(var i=0;i<pointsOfSail.length;i++) {
         var pos = pointsOfSail[i];
-        if(bearingFromWind >= pos.minDeg && bearingFromWind <= pos.maxDeg)
+        var bearing = Math.floor(bearingFromWind);
+        if(bearing >= pos.minDeg && bearing <= pos.maxDeg)
             return pos.name;
     }
 }
