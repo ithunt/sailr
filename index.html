@@ -132,7 +132,7 @@ function update() {
             "\nheading: " + heading +
             "\nWind: " + Math.round(wind.speed) + "kts @ " + Math.round(compassAngle(wind.direction)) +
             "\nAngle: " + Math.round(wind.getBearingRelativeTo(heading)) +
-            "\n" + pointOfSail(wind.getBearingRelativeTo(heading)).toString()
+            "\n" + pointOfSail(wind.getBearingRelativeTo(heading)).name
 //            + "\nangularV: " + Math.round(boat.body.angularVelocity)
 //            + "\nangularA: " + Math.round(boat.body.angularAcceleration)
 //            + "\nnow: " + Date.now()
@@ -166,58 +166,41 @@ var wind = {
         return diff < 180 ? diff : 360 - diff; //returns values between 0 and 180
     }
 };
-//could each have a function to take boat & wind, check characteristics and determine boat speed. Sail inventory, hull & keel features
-//we;ll do 180/5 = 36 for ease of use now. America's cup boat angles
-var pointsOfSail = [
-    {
-        name: "In Irons",
-        minDeg: 0, maxDeg: 35
-        //negative acceleration, can go backwards
-    },
-    {
-        name: "Close Hauled",
-        minDeg: 36, maxDeg: 72
-        //slow acceleration, low top speed
-    },
-    {
-        name: "Beam Reaching",
-        minDeg: 73, maxDeg: 108
-        //med acceleration
-    },
-    {
-        name: "Reaching",
-        minDeg: 109, maxDeg: 144
-        //high acceleration, increased top speed
-    },
-    {
-        name: "Downwind",
-        minDeg: 145, maxDeg: 180
-        //high acceleration, max top speed
-    }
-
-     //spinnaker vs asym vs wing on wing for what the point of sail => acceleration and top speed modifiers
-
-];
 
 function pointOfSail(bearingFromWind) {
-    for(var i=0;i<pointsOfSail.length;i++) {
-        var pos = pointsOfSail[i];
-        var bearing = Math.floor(bearingFromWind);
-        if(bearing >= pos.minDeg && bearing <= pos.maxDeg)
-            return pos.name;
+    var bearing = Math.floor(bearingFromWind);
+    if( bearing <= 35 ) {//america's cup angles
+        return {
+            name: "In Irons",
+            maxSpeedFactor: -0.2,
+            accelerationFactor: 1
+        }
+    } else if( bearing >= 36 && bearing <= 72 ) {
+        return {
+            name: "Close Hauled",
+            maxSpeedFactor: 0.6,
+            accelerationFactor: 0.6
+        }
+    } else if(  bearing >= 73 && bearing <= 108 ) {
+        return {
+            name: "Beam Reaching",
+            maxSpeedFactor: 0.75,
+            accelerationFactor: 0.75
+        }
+    } else if( bearing >= 109 && bearing <=144) {
+        return {
+            name: "Reaching",
+            maxSpeedFactor: 1,
+            accelerationFactor: 1
+        }
+    } else if( bearing >=145 ) {
+        return {
+            name: "Downwind",
+            maxSpeedFactor: 0.9,
+            accelerationFactor: 1
+        }
     }
 }
-//
-//var windAngle = wind.getBearingRelativeTo(boat.getBearing());
-//
-//
-//function printStatus() {
-//    console.log("Heading: " + boat.getBearing() );
-//    console.log("Wind:    " + wind.getSpeed() + "kts @ " + wind.getDirection() );
-//    console.log(pointOfSail(windAngle).toString() + " (" + windAngle + ")");
-//}
-//
-//printStatus();
 
 </script>
 
