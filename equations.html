@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>Sailr</title>
+    <script type="text/javascript" src="js/phaser.js"></script>
+    <script type="text/javascript" src="js/victor.js"></script>
+    <style type="text/css">
+        body {
+            margin: 0;
+        }
+    </style>
+</head>
+<body>
+<div id="wind">
+
+</div>
+<script type="text/javascript">
+    var degreeToRadiansFactor = Math.PI / 180;
+    var radianToDegreesFactor = 180 / Math.PI;
+    function degToRad (degrees) {
+        return degrees * degreeToRadiansFactor;
+    }
+    function radToDeg (radians) {
+        return radians * radianToDegreesFactor;
+    }
+
+
+    var windVelocity = 10;
+    var boatVelocity = 5;
+    var trueWindAngle = degToRad(90); //SAIL to true wind Angle
+    var heelAngle = 0;
+
+    //rewrite boat forces using Victors
+    var boatCourse = new Victor(boatVelocity,0); //5kts to the right
+    var wind       = new Victor(0,-windVelocity);
+
+    var apparentWind = boatCourse.add(wind);
+    console.log("apparent wind: " + apparentWind.length() );
+
+
+    //http://en.wikipedia.org/wiki/Forces_on_sails
+    function calculateBoatForces() {
+
+
+
+//        document.getElementById("wind").html = "10";
+        console.log("Wind: " + windVelocity);
+        console.log("Sail: " + boatVelocity + " @ " + radToDeg(trueWindAngle));
+
+        //apparent wind speed component opposite to boats course
+        var apparentWindOpposite = boatVelocity + windVelocity * Math.cos(trueWindAngle);
+        //apparent wind speed component normal to mast & boat course
+        var apparentWindNormal = windVelocity * Math.sin(trueWindAngle) * Math.cos(heelAngle);
+
+        //Apparent wind velocity to sail
+        var apparentWindVelocity = Math.sqrt( Math.pow(apparentWindOpposite,2) + Math.pow(apparentWindNormal,2) );
+
+        var apparentWindAngle = Math.acos( (apparentWindOpposite / apparentWindVelocity)%1 );
+    console.log("Apparent Wind: " + apparentWindVelocity + " @ " + radToDeg(apparentWindAngle));
+
+        var aerodynamicCoefficient = 1;//good number for sail, 2 is rigid body
+        var airDensity = 1.2;  //http://en.wikipedia.org/wiki/Density_of_air
+        var sailArea = 10; //in m^2
+        //bernoulli's equation - total force magnitude
+        var constants = 0.5 * airDensity * sailArea * aerodynamicCoefficient;
+
+        var totalSailForce = constants * (Math.pow(apparentWindVelocity,2));
+
+        console.log("totalSailForce: " + totalSailForce);
+
+        //Going to vastly oversimplfify keel hydrodynamics
+//
+//        //forces from keel moving through water
+//        var keelDrag = new Point(0,-200);
+    }
+
+
+
+    calculateBoatForces();
+
+    //http://www.ppl-flight-training.com/lift-formula.html
+    //KEEL_LIFT = CoefficientOfLift@AngleOfAttack   * 0.5*airDensity * Math.pow(boatSpeed,2) * keelArea
+    //
+    //FORCE_ON_SAILS = -{keelLift + keelDrag} //vector addition
+    // FORCE_ON_SAILS = -keelLift -keelDrag
+    //keel lift = -{FORCE_ON_SAILS+keelDrag}
+
+
+</script>
+
+</body>
+</html>
+
