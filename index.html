@@ -23,8 +23,8 @@ var boat;
 var windSprite;
 
 var acceleration = 200;
-var drag = 0;
-var maxspeed = 400;
+var drag = 800;
+var maxspeed = 100;
 
 var boatSpeed = 80;
 //steering feel
@@ -38,13 +38,13 @@ var statusText;
 
 function preload() {
 //    console.log('preload');
-	game.load.image('boat', 'img/boatSmall.png');
+	game.load.image('boat', 'img/vo65.png');
     game.load.image('compass', 'img/compass.png');
     game.load.image('wind', 'img/wind200.png');
     game.scale.pageAlignHorizontally = true;
     game.scale.pageAlignVertically = true;
 
-    game.physics.startSystem(Phaser.Physics.ARCADE);
+    game.physics.startSystem(Phaser.Physics.P2);
 
     game.world.setBounds(0, 0, 800, 600);
 }
@@ -58,16 +58,16 @@ function create() {
     //anchor from middle
     boat.anchor.setTo(0.5);
     //it's a big img
-    boat.scale.x = 0.5;
-    boat.scale.y = 0.5;
-    game.physics.enable(boat, Phaser.Physics.ARCADE);
+    boat.scale.setTo(0.2);
+    game.physics.enable(boat);
     boat.body.maxVelocity.setTo(maxspeed);
     boat.body.maxAngular = maxAngular;
-    boat.body.drag.setTo(drag,drag);
+//    boat.body.drag.setTo(drag,drag);
     boat.body.collideWorldBounds = true;
     //simulate rudder steering, when at speed it will return to center
     boat.body.angularDrag = angularDrag;
-    boat.rotation = 2;
+//    boat.body.rotation = 270;
+    boat.rotation =2;
 
     var style = { font: "18px Arial", fill: "#000", align: "right" };
     statusText = game.add.text(game.width-150, 30, "", style);
@@ -77,13 +77,12 @@ function create() {
     var directions = { font: "18px Arial", fill: "#000" };
     var directionText = game.add.text(300, 10, "Use the left and right arrows to move your rudder", style);
 
-
     var compass = game.add.sprite(0,0, 'compass');
     compass.scale.setTo(0.15);
 
     windSprite = game.add.sprite(400,10,'wind');
     windSprite.anchor.setTo(0.5);
-    windSprite.scale.setTo(0.4);
+    windSprite.scale.setTo(0.3);
     windSprite.rotation = Phaser.Math.degToRad( wind.direction + 180 );
     wind.lastShift = Date.now();
 
@@ -94,7 +93,10 @@ var wind_shift_period = 3*1000;
 var wind_shift_chance = 0.5;
 var wind_shift_range = 20;
 
+var lastWindForce = 0; //for simulating momentum
 function update() {
+
+    //WIND SHIFT FUNCTION @todo => wind shifts too rapidly. boat can immediately stop (no momentum?)
     if( wind_shift_period < (Date.now() - wind.lastShift) ) {
         if( Math.random() < wind_shift_chance ) {
         wind.setDirection(
@@ -115,29 +117,48 @@ function update() {
         boat.body.angularAcceleration = rudderAcceleration;
     }
 
-    //Move boat at a constant speed in the direction it is pointing (body.rotation)
-    boat.body.velocity.y = -Math.cos( Phaser.Math.degToRad( boat.body.rotation ) ) * boatSpeed;
-    boat.body.velocity.x = Math.sin( Phaser.Math.degToRad( boat.body.rotation ) )* boatSpeed;
+    var gameSpeed = 0.5;
+    var acceleration = gameSpeed * wind.speed * accelFunction[Math.floor(wind.getBearingRelativeTo(compassAngle(boat.body.rotation)))];
 
-//    if(cursors.up.isDown) {
-//        boat.body.acceleration = acceleration;
-//    } else if(cursors.down.isDown) {
-//        boat.body.acceleration = -acceleration;
-//    }
+
+    //first compute relative wind
+    //Relative wind = wind magnitude and angle + boat speed magnitude and angle
+
+
+    var force = [0,0]; //x and y components of the force I believe!
+    //make sure to give the boat mass
+
+//    boat.body.applyForce([],[0,0])
+
+    //windforce = windspeed * (factor between -0.2ish and 1 depending on your wind angle) * 10 because I said so
+    var newSpeed = boat.body.velocity.getMagnitude() + acceleration;
+
+    var scaleY = -Math.cos( Phaser.Math.degToRad( boat.body.rotation ));
+    var scaleX = Math.sin( Phaser.Math.degToRad( boat.body.rotation ));
+//
+    boat.body.velocity.setMagnitude( newSpeed );
+
+    boat.body.velocity.x = scaleX * newSpeed;
+    boat.body.velocity.y = scaleY * newSpeed;
+
     var heading = compassAngle( Math.round(boat.body.rotation) ); //rotation is 90 degrees different then the game plane
 //    console.log(heading);
+
     statusText.text =
             "velX: " + Math.round(boat.body.velocity.x) +
             "\nvelY: " + Math.round(boat.body.velocity.y) +
             "\nheading: " + heading +
             "\nWind: " + Math.round(wind.speed) + "kts @ " + Math.round(compassAngle(wind.direction)) +
             "\nAngle: " + Math.round(wind.getBearingRelativeTo(heading)) +
-            "\n" + pointOfSail(wind.getBearingRelativeTo(heading)).name
-//            + "\nangularV: " + Math.round(boat.body.angularVelocity)
+            "\n" + boatPointOfSail().name
+            + "\nvelo: " + Math.round(boat.body.velocity.getMagnitude())
 //            + "\nangularA: " + Math.round(boat.body.angularAcceleration)
 //            + "\nnow: " + Date.now()
+//            +"\ntargetX: " + Math.round(targetXVelocity)
+//            +"\ntargetY: " + Math.round(targetYVelocity)
+//            +"\nnewX: " + Math.round(newX)
+//            +"\nnewY: " + Math.round(newY)
     ;
-
     //update
 }
 
@@ -166,14 +187,20 @@ var wind = {
         return diff < 180 ? diff : 360 - diff; //returns values between 0 and 180
     }
 };
-
+function boatPointOfSail() {
+    return pointOfSail(
+            wind.getBearingRelativeTo(
+                compassAngle( Math.round(boat.body.rotation) )
+            )
+            );
+}
 function pointOfSail(bearingFromWind) {
     var bearing = Math.floor(bearingFromWind);
     if( bearing <= 35 ) {//america's cup angles
         return {
             name: "In Irons",
-            maxSpeedFactor: -0.2,
-            accelerationFactor: 1
+            maxSpeedFactor: -0.0005,
+            accelerationFactor: 0.3
         }
     } else if( bearing >= 36 && bearing <= 72 ) {
         return {
@@ -187,13 +214,13 @@ function pointOfSail(bearingFromWind) {
             maxSpeedFactor: 0.75,
             accelerationFactor: 0.75
         }
-    } else if( bearing >= 109 && bearing <=144) {
+    } else if( bearing >= 109 && bearing <= 144) {
         return {
             name: "Reaching",
             maxSpeedFactor: 1,
             accelerationFactor: 1
         }
-    } else if( bearing >=145 ) {
+    } else if( bearing >= 145 ) {
         return {
             name: "Downwind",
             maxSpeedFactor: 0.9,
@@ -201,6 +228,190 @@ function pointOfSail(bearingFromWind) {
         }
     }
 }
+
+//181 entries
+var accelFunction = [
+    -0.25,
+    -0.25,
+    -0.25,
+    -0.25,
+    -0.25,
+    -0.25,
+    -0.25,
+    -0.25,
+    -0.25,
+    -0.25,
+    -0.25,
+    -0.25,
+    -0.25,
+    -0.25,
+    -0.25,
+    -0.25,
+    -0.25,
+    -0.25,
+    -0.25,
+    -0.25,
+    -0.25,
+    -0.25,
+    -0.2,
+    -0.15,
+    -0.1,
+    -0.05,
+    0,
+    0,
+    0.1,
+    0.2,
+    0.3,
+    0.4,
+    0.45,
+    0.5,
+    0.55,
+    0.6,
+    0.6045454545,
+    0.6090909091,
+    0.6136363636,
+    0.6181818182,
+    0.6227272727,
+    0.6272727273,
+    0.6318181818,
+    0.6363636364,
+    0.6409090909,
+    0.6454545455,
+    0.65,
+    0.6545454545,
+    0.6590909091,
+    0.6636363636,
+    0.6681818182,
+    0.6727272727,
+    0.6772727273,
+    0.6818181818,
+    0.6863636364,
+    0.6909090909,
+    0.6954545455,
+    0.7,
+    0.7045454545,
+    0.7090909091,
+    0.7136363636,
+    0.7181818182,
+    0.7227272727,
+    0.7272727273,
+    0.7318181818,
+    0.7363636364,
+    0.7409090909,
+    0.7454545455,
+    0.75,
+    0.7545454545,
+    0.7590909091,
+    0.7636363636,
+    0.7681818182,
+    0.7727272727,
+    0.7772727273,
+    0.7818181818,
+    0.7863636364,
+    0.7909090909,
+    0.7954545455,
+    0.8,
+    0.8045454545,
+    0.8090909091,
+    0.8136363636,
+    0.8181818182,
+    0.8227272727,
+    0.8272727273,
+    0.8318181818,
+    0.8363636364,
+    0.8409090909,
+    0.8454545455,
+    0.85,
+    0.8522222222,
+    0.8544444444,
+    0.8566666667,
+    0.8588888889,
+    0.8611111111,
+    0.8633333333,
+    0.8655555556,
+    0.8677777778,
+    0.87,
+    0.8722222222,
+    0.8744444444,
+    0.8766666667,
+    0.8788888889,
+    0.8811111111,
+    0.8833333333,
+    0.8855555556,
+    0.8877777778,
+    0.89,
+    0.8922222222,
+    0.8944444444,
+    0.8966666667,
+    0.8988888889,
+    0.9011111111,
+    0.9033333333,
+    0.9055555556,
+    0.9077777778,
+    0.91,
+    0.9122222222,
+    0.9144444444,
+    0.9166666667,
+    0.9188888889,
+    0.9211111111,
+    0.9233333333,
+    0.9255555556,
+    0.9277777778,
+    0.93,
+    0.9322222222,
+    0.9344444444,
+    0.9366666667,
+    0.9388888889,
+    0.9411111111,
+    0.9433333333,
+    0.9455555556,
+    0.9477777778,
+    0.95,
+    0.9511111111,
+    0.9522222222,
+    0.9533333333,
+    0.9544444444,
+    0.9555555556,
+    0.9566666667,
+    0.9577777778,
+    0.9588888889,
+    0.96,
+    0.9611111111,
+    0.9622222222,
+    0.9633333333,
+    0.9644444444,
+    0.9655555556,
+    0.9666666667,
+    0.9677777778,
+    0.9688888889,
+    0.97,
+    0.9711111111,
+    0.9722222222,
+    0.9733333333,
+    0.9744444444,
+    0.9755555556,
+    0.9766666667,
+    0.9777777778,
+    0.9788888889,
+    0.98,
+    0.9811111111,
+    0.9822222222,
+    0.9833333333,
+    0.9844444444,
+    0.9855555556,
+    0.9866666667,
+    0.9877777778,
+    0.9888888889,
+    0.99,
+    0.9911111111,
+    0.9922222222,
+    0.9933333333,
+    0.9944444444,
+    0.9955555556,
+    0.9966666667,
+    0.9977777778,
+    0.9988888889,
+    1]
 
 </script>
 
