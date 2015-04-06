@@ -36,6 +36,8 @@ var status = 0;
 
 var statusText;
 
+var WIND_FIXED = true;
+
 function preload() {
 //    console.log('preload');
 	game.load.image('boat', 'img/vo65.png');
@@ -46,7 +48,7 @@ function preload() {
 
     game.physics.startSystem(Phaser.Physics.P2);
 
-    game.world.setBounds(0, 0, 800, 600);
+    game.world.setBounds(0, 0, 10000, 10000);
 }
 
 function create() {
@@ -69,6 +71,8 @@ function create() {
 //    boat.body.rotation = 270;
     boat.rotation =2;
 
+    game.camera.follow(boat);
+
     var style = { font: "18px Arial", fill: "#000", align: "right" };
     statusText = game.add.text(game.width-150, 30, "", style);
 //    statusText.anchor.x = Math.round(statusText.width * 0.5) / statusText.width;
@@ -81,6 +85,7 @@ function create() {
     compass.scale.setTo(0.15);
 
     windSprite = game.add.sprite(400,10,'wind');
+    windSprite.fixedToCamera = true;
     windSprite.anchor.setTo(0.5);
     windSprite.scale.setTo(0.3);
     windSprite.rotation = Phaser.Math.degToRad( wind.direction + 180 );
@@ -97,7 +102,7 @@ var lastWindForce = 0; //for simulating momentum
 function update() {
 
     //WIND SHIFT FUNCTION @todo => wind shifts too rapidly. boat can immediately stop (no momentum?)
-    if( wind_shift_period < (Date.now() - wind.lastShift) ) {
+    if( !WIND_FIXED && wind_shift_period < (Date.now() - wind.lastShift) ) {
         if( Math.random() < wind_shift_chance ) {
         wind.setDirection(
                 //if the wind shift range is 45,the wind will shift up to +/- 22.5 degrees on either side
