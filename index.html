@@ -4,6 +4,7 @@
 	<meta charset="UTF-8" />
 	<title>Sailr</title>
 	<script type="text/javascript" src="js/phaser.js"></script>
+	<script type="text/javascript" src="js/victor.js"></script>
     <style type="text/css">
         body {
             margin: 0;
@@ -38,11 +39,13 @@ var statusText;
 
 var WIND_FIXED = true;
 
+var start_time;
 function preload() {
 //    console.log('preload');
 	game.load.image('boat', 'img/vo65.png');
     game.load.image('compass', 'img/compass.png');
     game.load.image('wind', 'img/wind200.png');
+    game.load.image('water', 'img/water_deep.png');
     game.scale.pageAlignHorizontally = true;
     game.scale.pageAlignVertically = true;
 
@@ -51,12 +54,18 @@ function preload() {
     game.world.setBounds(0, 0, 10000, 10000);
 }
 
+var water;
 function create() {
+    start_time = Date.now();
     //white background
-    game.stage.backgroundColor = "#1C6BA0";
+//    game.stage.backgroundColor = "#1C6BA0";
+
+    water = game.add.tileSprite(0,0,10000,10000,'water');
+
 
     //THE BOAT
-	boat = game.add.sprite(100,100, 'boat');
+
+    boat = game.add.sprite(300,300, 'boat');
     //anchor from middle
     boat.anchor.setTo(0.5);
     //it's a big img
@@ -112,7 +121,7 @@ function update() {
         }
     }
     //update wind indicator
-    windSprite.rotation =  Phaser.Math.degToRad( wind.direction + 90 );
+    windSprite.rotation = Phaser.Math.degToRad( wind.direction + 90 );
 
     //rudder alters the angular acceleration of the boat
     boat.body.angularAcceleration = 0;
@@ -138,17 +147,30 @@ function update() {
     //windforce = windspeed * (factor between -0.2ish and 1 depending on your wind angle) * 10 because I said so
     var newSpeed = boat.body.velocity.getMagnitude() + acceleration;
 
-    var scaleY = -Math.cos( Phaser.Math.degToRad( boat.body.rotation ));
-    var scaleX = Math.sin( Phaser.Math.degToRad( boat.body.rotation ));
-//
-    boat.body.velocity.setMagnitude( newSpeed );
+    var velocity = new Victor(newSpeed, 0);
+    velocity.rotate(Phaser.Math.degToRad(boat.body.rotation)-(Math.PI/2));
 
-    boat.body.velocity.x = scaleX * newSpeed;
-    boat.body.velocity.y = scaleY * newSpeed;
+//
+//    var scaleY = -Math.cos( Phaser.Math.degToRad( boat.body.rotation ));
+//    var scaleX = Math.sin( Phaser.Math.degToRad( boat.body.rotation ));
+////
+//    boat.body.velocity.setMagnitude( newSpeed );
+//
+//    boat.body.velocity.x = scaleX * newSpeed;
+//    boat.body.velocity.y = scaleY * newSpeed;
+
+    boat.body.velocity.x = velocity.x;
+    boat.body.velocity.y = velocity.y;
 
     var heading = compassAngle( Math.round(boat.body.rotation) ); //rotation is 90 degrees different then the game plane
 //    console.log(heading);
 
+    var wave_period = 4000;
+    var wave_delta = 0.1 * Math.cos((2*Math.PI * (((Date.now()-start_time)%wave_period)))/wave_period) + 0.3;
+    var wave = new Victor(wave_delta, 0);
+    wave.rotate(Math.PI / 4);
+    water.tilePosition.x += wave.x ;
+    water.tilePosition.y += wave.y;
     statusText.text =
             "velX: " + Math.round(boat.body.velocity.x) +
             "\nvelY: " + Math.round(boat.body.velocity.y) +
