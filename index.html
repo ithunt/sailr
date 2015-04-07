@@ -40,12 +40,17 @@ var statusText;
 var WIND_FIXED = true;
 
 var start_time;
+
+var waterSprayEmitter;
+var waterSprayEmitter2;
+
 function preload() {
 //    console.log('preload');
 	game.load.image('boat', 'img/vo65.png');
     game.load.image('compass', 'img/compass.png');
     game.load.image('wind', 'img/wind200.png');
     game.load.image('water', 'img/water_deep.png');
+    game.load.image('corona', 'img/blue.png');
     game.scale.pageAlignHorizontally = true;
     game.scale.pageAlignVertically = true;
 
@@ -78,7 +83,31 @@ function create() {
     //simulate rudder steering, when at speed it will return to center
     boat.body.angularDrag = angularDrag;
 //    boat.body.rotation = 270;
-    boat.rotation =2;
+    boat.rotation = 1;
+
+//    boat.rotation = 2;
+
+    var particle_duration = 1000; //this should INCREASE with boat speed
+
+    //port and startboard emitters for spray particles
+    waterSprayEmitter = game.add.emitter(boat.x, boat.y, 1000); //max particles
+    waterSprayEmitter.makeParticles('corona');
+    waterSprayEmitter.setAlpha(1,0,particle_duration);
+    waterSprayEmitter.minParticleScale = 0.3;
+    waterSprayEmitter.maxParticleScale = 0.3;
+    waterSprayEmitter.gravity = 0;
+
+    waterSprayEmitter2 = game.add.emitter(boat.x, boat.y, 1000); //max particles
+    waterSprayEmitter2.makeParticles('corona');
+    waterSprayEmitter2.setAlpha(1,0,particle_duration);
+    waterSprayEmitter2.minParticleScale = 0.3;
+    waterSprayEmitter2.maxParticleScale = 0.3;
+    waterSprayEmitter2.gravity = 0;
+
+//    waterSprayEmitter.setScale(0.1);
+
+    waterSprayEmitter.start(false, particle_duration, 30);
+    waterSprayEmitter2.start(false, particle_duration, 30);
 
     game.camera.follow(boat);
 
@@ -101,6 +130,8 @@ function create() {
     wind.lastShift = Date.now();
 
     cursors = game.input.keyboard.createCursorKeys();
+
+    boat.bringToTop();
 }
 
 var wind_shift_period = 3*1000;
@@ -109,6 +140,8 @@ var wind_shift_range = 20;
 
 var lastWindForce = 0; //for simulating momentum
 function update() {
+
+
 
     //WIND SHIFT FUNCTION @todo => wind shifts too rapidly. boat can immediately stop (no momentum?)
     if( !WIND_FIXED && wind_shift_period < (Date.now() - wind.lastShift) ) {
@@ -178,15 +211,61 @@ function update() {
             "\nWind: " + Math.round(wind.speed) + "kts @ " + Math.round(compassAngle(wind.direction)) +
             "\nAngle: " + Math.round(wind.getBearingRelativeTo(heading)) +
             "\n" + boatPointOfSail().name
-            + "\nvelo: " + Math.round(boat.body.velocity.getMagnitude())
+            + "\nvelo: " + Math.round(velocity.length())
 //            + "\nangularA: " + Math.round(boat.body.angularAcceleration)
 //            + "\nnow: " + Date.now()
 //            +"\ntargetX: " + Math.round(targetXVelocity)
 //            +"\ntargetY: " + Math.round(targetYVelocity)
-//            +"\nnewX: " + Math.round(newX)
-//            +"\nnewY: " + Math.round(newY)
+//            +"\nwaveX: " + wave.x
+//            +"\nwaveY: " + wave.y
     ;
     //update
+    var emitLocation = new Victor(0,-(boat.height/2)+7);
+    emitLocation.rotate(boat.rotation);
+
+    var starboardEmitVelocity = velocity.multiply(new Victor(-0.5,-0.5));
+    var portEmitVelocity = starboardEmitVelocity.clone();
+    starboardEmitVelocity.rotate(-Math.PI / 4);
+    portEmitVelocity.rotate(Math.PI / 4);
+
+    var lifespan = 100 * new Victor(boat.body.velocity.x, boat.body.velocity.y).length();
+//    waterSprayEmitter.forEachAlive(function(p) {
+//        if(p.lifespan > lifespan)
+//            p.kill();
+//    });
+//
+//    waterSprayEmitter2.forEachAlive(function(p) {
+//        if(p.lifespan > lifespan)
+//            p.kill();
+//    });
+    waterSprayEmitter.on = velocity.length() > 1;
+    waterSprayEmitter.lifespan = lifespan;
+    waterSprayEmitter.minParticleSpeed.set(starboardEmitVelocity.x, starboardEmitVelocity.y);
+    waterSprayEmitter.maxParticleSpeed.set(starboardEmitVelocity.x, starboardEmitVelocity.y);
+    waterSprayEmitter.emitX = boat.x + emitLocation.x;
+    waterSprayEmitter.emitY = boat.y + emitLocation.y;
+
+    waterSprayEmitter2.on = velocity.length() > 1;
+    waterSprayEmitter2.lifespan = lifespan;
+    waterSprayEmitter2.minParticleSpeed.set(portEmitVelocity.x, portEmitVelocity.y);
+    waterSprayEmitter2.maxParticleSpeed.set(portEmitVelocity.x, portEmitVelocity.y);
+    waterSprayEmitter2.emitX = boat.x + emitLocation.x;
+    waterSprayEmitter2.emitY = boat.y + emitLocation.y;
+
+
+//    waterSprayEmitter.rotation = boat.rotation + Math.PI;
+
+
+}
+
+function tanh(x)
+{
+    if( x < -3 )
+        return -1;
+    else if( x > 3 )
+        return 1;
+    else
+        return x * ( 27 + x * x ) / ( 27 + 9 * x * x );
 }
 
 function radsToDegrees(radians) {
