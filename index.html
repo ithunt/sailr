@@ -1,10 +1,10 @@
-<!doctype html> 
-<html lang="en"> 
-<head> 
-	<meta charset="UTF-8" />
-	<title>Sailr</title>
-	<script type="text/javascript" src="js/phaser.js"></script>
-	<script type="text/javascript" src="js/victor.js"></script>
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>Sailr</title>
+    <script type="text/javascript" src="js/phaser.js"></script>
+    <script type="text/javascript" src="js/victor.js"></script>
     <style type="text/css">
         body {
             margin: 0;
@@ -40,13 +40,37 @@ var statusText;
 var WIND_FIXED = true;
 
 var start_time;
-
+var water;
 var waterSprayEmitter;
 var waterSprayEmitter2;
+var velocity = new Victor();
+var particle_duration = function() {
+    return Math.round(velocity.lengthSq()) / 2;
+};
+
+var wind_shift_period = 3*1000;
+var wind_shift_chance = 0.5;
+var wind_shift_range = 20;
+
+var lastWindForce = 0; //for simulating momentum
+
+var wind = {
+    speed: 10,
+    direction: 0,
+    lastShift: 0,
+    setDirection: function(direction) {
+        this.lastShift = Date.now();
+        this.direction = direction;
+    },
+    getBearingRelativeTo: function(compassBearing) {
+        var diff = Math.abs(compassBearing - this.direction);
+        return diff < 180 ? diff : 360 - diff; //returns values between 0 and 180
+    }
+};
 
 function preload() {
 //    console.log('preload');
-	game.load.image('boat', 'img/vo65.png');
+    game.load.image('boat', 'img/vo65.png');
     game.load.image('compass', 'img/compass.png');
     game.load.image('wind', 'img/wind200.png');
     game.load.image('water', 'img/water_deep.png');
@@ -59,17 +83,14 @@ function preload() {
     game.world.setBounds(0, 0, 10000, 10000);
 }
 
-var water;
+
 function create() {
     start_time = Date.now();
-    //white background
-//    game.stage.backgroundColor = "#1C6BA0";
 
+    //water background
     water = game.add.tileSprite(0,0,10000,10000,'water');
 
-
     //THE BOAT
-
     boat = game.add.sprite(300,300, 'boat');
     //anchor from middle
     boat.anchor.setTo(0.5);
@@ -87,27 +108,28 @@ function create() {
 
 //    boat.rotation = 2;
 
-    var particle_duration = 1000; //this should INCREASE with boat speed
+    //this should INCREASE with boat speed
 
     //port and startboard emitters for spray particles
     waterSprayEmitter = game.add.emitter(boat.x, boat.y, 1000); //max particles
     waterSprayEmitter.makeParticles('corona');
-    waterSprayEmitter.setAlpha(1,0,particle_duration);
+//    waterSprayEmitter.setAlpha(1,0,particle_duration());
     waterSprayEmitter.minParticleScale = 0.3;
     waterSprayEmitter.maxParticleScale = 0.3;
     waterSprayEmitter.gravity = 0;
 
     waterSprayEmitter2 = game.add.emitter(boat.x, boat.y, 1000); //max particles
     waterSprayEmitter2.makeParticles('corona');
-    waterSprayEmitter2.setAlpha(1,0,particle_duration);
+    waterSprayEmitter2.setAlpha(1,0,particle_duration());
     waterSprayEmitter2.minParticleScale = 0.3;
     waterSprayEmitter2.maxParticleScale = 0.3;
+//    waterSprayEmitter2.particleDrag.setTo(50);
     waterSprayEmitter2.gravity = 0;
 
 //    waterSprayEmitter.setScale(0.1);
 
-    waterSprayEmitter.start(false, particle_duration, 30);
-    waterSprayEmitter2.start(false, particle_duration, 30);
+    waterSprayEmitter.start(false, 1000, 30);
+    waterSprayEmitter2.start(false, 1000, 30);
 
     game.camera.follow(boat);
 
@@ -116,8 +138,8 @@ function create() {
 //    statusText.anchor.x = Math.round(statusText.width * 0.5) / statusText.width;
     statusText.fixedToCamera = true;
 
-    var directions = { font: "18px Arial", fill: "#000" };
-    var directionText = game.add.text(300, 10, "Use the left and right arrows to move your rudder", style);
+//    var directions = { font: "18px Arial", fill: "#000" };
+//    var directionText = game.add.text(300, 10, "Use the left and right arrows to move your rudder", style);
 
     var compass = game.add.sprite(0,0, 'compass');
     compass.scale.setTo(0.15);
@@ -134,11 +156,7 @@ function create() {
     boat.bringToTop();
 }
 
-var wind_shift_period = 3*1000;
-var wind_shift_chance = 0.5;
-var wind_shift_range = 20;
 
-var lastWindForce = 0; //for simulating momentum
 function update() {
 
 
@@ -146,9 +164,9 @@ function update() {
     //WIND SHIFT FUNCTION @todo => wind shifts too rapidly. boat can immediately stop (no momentum?)
     if( !WIND_FIXED && wind_shift_period < (Date.now() - wind.lastShift) ) {
         if( Math.random() < wind_shift_chance ) {
-        wind.setDirection(
-                //if the wind shift range is 45,the wind will shift up to +/- 22.5 degrees on either side
-                wind.direction + (wind_shift_range * Math.random()) - (wind_shift_range/2));
+            wind.setDirection(
+                    //if the wind shift range is 45,the wind will shift up to +/- 22.5 degrees on either side
+                    wind.direction + (wind_shift_range * Math.random()) - (wind_shift_range/2));
         } else {
             wind.lastShift = Date.now(); //delay the shift
         }
@@ -176,11 +194,10 @@ function update() {
     //make sure to give the boat mass
 
 //    boat.body.applyForce([],[0,0])
-
     //windforce = windspeed * (factor between -0.2ish and 1 depending on your wind angle) * 10 because I said so
     var newSpeed = boat.body.velocity.getMagnitude() + acceleration;
 
-    var velocity = new Victor(newSpeed, 0);
+    velocity = new Victor(newSpeed, 0);
     velocity.rotate(Phaser.Math.degToRad(boat.body.rotation)-(Math.PI/2));
 
 //
@@ -204,21 +221,7 @@ function update() {
     wave.rotate(Math.PI / 4);
     water.tilePosition.x += wave.x ;
     water.tilePosition.y += wave.y;
-    statusText.text =
-            "velX: " + Math.round(boat.body.velocity.x) +
-            "\nvelY: " + Math.round(boat.body.velocity.y) +
-            "\nheading: " + heading +
-            "\nWind: " + Math.round(wind.speed) + "kts @ " + Math.round(compassAngle(wind.direction)) +
-            "\nAngle: " + Math.round(wind.getBearingRelativeTo(heading)) +
-            "\n" + boatPointOfSail().name
-            + "\nvelo: " + Math.round(velocity.length())
-//            + "\nangularA: " + Math.round(boat.body.angularAcceleration)
-//            + "\nnow: " + Date.now()
-//            +"\ntargetX: " + Math.round(targetXVelocity)
-//            +"\ntargetY: " + Math.round(targetYVelocity)
-//            +"\nwaveX: " + wave.x
-//            +"\nwaveY: " + wave.y
-    ;
+
     //update
     var emitLocation = new Victor(0,-(boat.height/2)+7);
     emitLocation.rotate(boat.rotation);
@@ -227,8 +230,38 @@ function update() {
     var portEmitVelocity = starboardEmitVelocity.clone();
     starboardEmitVelocity.rotate(-Math.PI / 4);
     portEmitVelocity.rotate(Math.PI / 4);
+    waterSprayEmitter.forEachExists(function(p) {
+        if(p.born !== undefined) {
+            var alpha = 1 - ((Date.now() - p.born)/p.emittedDuration);
+            if(alpha <= 0) {
+                p.kill();
+            } else {
+                p.alpha = alpha;
+            }
+        } else {
+            p.alpha = 1;
+            p.emittedDuration = particle_duration();
+            p.born = Date.now();
+        }
+    });
+    waterSprayEmitter2.children.forEach(function(p) {
+        if(p.born !== undefined) {
+            var alpha = 1 - Math.min(1,Date.now() - p.born/p.emittedDuration);
+//            console.log(p.born);
+            if(alpha <= 0) {
+                console.log("killed after " + (Date.now() - p.born) + "ms");
+                p.kill();
+            } else {
 
-    var lifespan = 100 * new Victor(boat.body.velocity.x, boat.body.velocity.y).length();
+                p.alpha = alpha;
+            }
+        } else {
+            p.alpha = 1;
+            p.emittedDuration = particle_duration();
+            p.born = Date.now();
+        }
+    });
+
 //    waterSprayEmitter.forEachAlive(function(p) {
 //        if(p.lifespan > lifespan)
 //            p.kill();
@@ -239,22 +272,39 @@ function update() {
 //            p.kill();
 //    });
     waterSprayEmitter.on = velocity.length() > 1;
-    waterSprayEmitter.lifespan = lifespan;
+//    waterSprayEmitter.lifespan = particle_duration();
+//    waterSprayEmitter.setAlpha(1,0,particle_duration());
     waterSprayEmitter.minParticleSpeed.set(starboardEmitVelocity.x, starboardEmitVelocity.y);
     waterSprayEmitter.maxParticleSpeed.set(starboardEmitVelocity.x, starboardEmitVelocity.y);
     waterSprayEmitter.emitX = boat.x + emitLocation.x;
     waterSprayEmitter.emitY = boat.y + emitLocation.y;
 
+
     waterSprayEmitter2.on = velocity.length() > 1;
-    waterSprayEmitter2.lifespan = lifespan;
+//    waterSprayEmitter2.lifespan = particle_duration();
+//    waterSprayEmitter2.autoAlpha
+//    waterSprayEmitter2.getFirstAlive().setAlpha(1,0,particle_duration);
     waterSprayEmitter2.minParticleSpeed.set(portEmitVelocity.x, portEmitVelocity.y);
     waterSprayEmitter2.maxParticleSpeed.set(portEmitVelocity.x, portEmitVelocity.y);
     waterSprayEmitter2.emitX = boat.x + emitLocation.x;
     waterSprayEmitter2.emitY = boat.y + emitLocation.y;
 
-
 //    waterSprayEmitter.rotation = boat.rotation + Math.PI;
-
+    statusText.text =
+            "velX: " + Math.round(boat.body.velocity.x) +
+                    "\nvelY: " + Math.round(boat.body.velocity.y) +
+                    "\nheading: " + heading +
+                    "\nWind: " + Math.round(wind.speed) + "kts @ " + Math.round(compassAngle(wind.direction)) +
+                    "\nAngle: " + Math.round(wind.getBearingRelativeTo(heading)) +
+                    "\n" + boatPointOfSail().name
+                    + "\nvelo: " + Math.round(velocity.length())
+//            + "\nangularA: " + Math.round(boat.body.angularAcceleration)
+//            + "\nnow: " + Date.now()
+//            +"\ntargetX: " + Math.round(targetXVelocity)
+//            +"\ntargetY: " + Math.round(targetYVelocity)
+//            +"\nwaveX: " + wave.x
+            +"\npdur " + particle_duration()
+    ;
 
 }
 
@@ -280,25 +330,13 @@ function compassAngle(degrees) {
     return angle;
 }
 
-var wind = {
-    speed: 10,
-    direction: 0,
-    lastShift: 0,
-    setDirection: function(direction) {
-        this.lastShift = Date.now();
-        this.direction = direction;
-    },
-    getBearingRelativeTo: function(compassBearing) {
-        var diff = Math.abs(compassBearing - this.direction);
-        return diff < 180 ? diff : 360 - diff; //returns values between 0 and 180
-    }
-};
+
 function boatPointOfSail() {
     return pointOfSail(
             wind.getBearingRelativeTo(
-                compassAngle( Math.round(boat.body.rotation) )
+                    compassAngle( Math.round(boat.body.rotation) )
             )
-            );
+    );
 }
 function pointOfSail(bearingFromWind) {
     var bearing = Math.floor(bearingFromWind);
